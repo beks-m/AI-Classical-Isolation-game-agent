@@ -138,10 +138,16 @@ class CustomPlayer:
                 # Start with minimal depth and gradually increase it to get better move
                 depth = 0
                 while True:
-                    score, best_move = self.minimax(game, depth, True)
+                    if (self.method == 'minimax'):
+                        score, best_move = self.minimax(game, depth, True)
+                    if (self.method == 'alphabeta'):
+                        score, best_move = self.alphabeta(game, depth, True)
                     depth += 1
             else:
-                score, best_move = self.minimax(game, self.search_depth, True)
+                if (self.method == 'minimax'):
+                    score, best_move = self.minimax(game, self.search_depth, True)
+                if (self.method == 'alphabeta'):
+                    score, best_move = self.alphabeta(game, self.search_depth, True)
 
         except Timeout:
             # Handle any actions required at timeout, if necessary
@@ -180,19 +186,17 @@ class CustomPlayer:
         if self.time_left() < self.TIMER_THRESHOLD:
             raise Timeout()
 
-        # if we reached the search depth limit, then return the heuristic value for forecast state and any random move
+        # if we reached the search depth limit, then return the heuristic value for forecast state and move
         if depth == 0:
-            return self.score(game, self), random.choice(game.get_legal_moves())
+            return self.score(game, self), (-1, -1)
 
         # if we reached the game tree bottom, then return the heuristic value for forecast state
         if game.utility(game.active_player) != 0:
             return game.utility(game.active_player), (-1, -1)
 
         # Recursive function that compares the heuristic values and chooses best move accordingly
-        # Assign best_move any random move at first
-        best_move = random.choice(game.get_legal_moves())
-
         # Check if we are on max node or min node, then act act accordingly
+        # ~ Max-Value function described in aima-pseudocode repository
         if maximizing_player:
             # Choose minimal initial best_score, so we have something to compare to when iterating
             best_score = float("-inf")
@@ -204,6 +208,7 @@ class CustomPlayer:
                     best_score = score
                     best_move = move
         # Almost the same logic if we are on min node
+        # ~ Min-Value function described in aima-pseudocode repository
         else:
             # Choose maximal initial best_score, so we have something to compare to when iterating
             best_score = float("inf")
@@ -253,5 +258,46 @@ class CustomPlayer:
         if self.time_left() < self.TIMER_THRESHOLD:
             raise Timeout()
 
-        # TODO: finish this function!
-        raise NotImplementedError
+        # if we reached the search depth limit, then return the heuristic value for forecast state and any random move
+        # TODO: Check -1, -1
+        if depth == 0:
+            return self.score(game, self), (-1, -1)
+
+        # if we reached the game tree bottom, then return the heuristic value for forecast state
+        # TODO: Check utility
+        if game.utility(game.active_player) != 0:
+            return game.utility(game.active_player), (-1, -1)
+
+        # Recursive function that compares the heuristic values and chooses best move accordingly
+        # Check if we are on max node or min node, then act act accordingly
+        if maximizing_player:
+            # Choose minimal initial best_score, so we have something to compare to when iterating
+            best_score = alpha
+            for move in game.get_legal_moves():
+                # Start the recursive iteration of game tree
+                # But before check if we really need it
+                if best_score >= beta:
+                    break
+                else:
+                    score, new_move = self.alphabeta(game.forecast_move(move), depth-1, best_score, float("inf"), not maximizing_player)
+                    # Assign to best option the node (move) with the maximum score
+                    if score > best_score:
+                        best_score = score
+                        best_move = move
+        # Almost the same logic if we are on min node
+        else:
+            # Choose maximal initial best_score, so we have something to compare to when iterating
+            best_score = beta
+            for move in game.get_legal_moves():
+                # Start the recursive iteration of game tree
+                if best_score <= alpha:
+                    break
+                else:
+                    score, new_move = self.alphabeta(game.forecast_move(move), depth-1, float("-inf"), best_score, not maximizing_player)
+                    # Assign to best option the node (move) with the minimum score
+                    if score < best_score:
+                        best_score = score
+                        best_move = move
+
+        return best_score, best_move
+
