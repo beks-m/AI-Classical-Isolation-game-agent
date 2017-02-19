@@ -182,7 +182,7 @@ class CustomPlayer:
             The best move for the current branch; (-1, -1) for no legal moves
         """
 
-        # check the timer on every recursion
+        # check the timer on every iteration, raise Timeout exception if time is running out
         if self.time_left() < self.TIMER_THRESHOLD:
             raise Timeout()
 
@@ -190,9 +190,12 @@ class CustomPlayer:
         if depth == 0:
             return self.score(game, self), (-1, -1)
 
-        # if we reached the game tree bottom, then return the heuristic value for forecast state
+        # if we reached the game tree bottom, then return the heuristic value for forecast state and move
         if game.utility(game.active_player) != 0:
             return game.utility(game.active_player), (-1, -1)
+
+        # Instantiate best_move with random move, so that we can safely return anything in the end of function
+        best_move = random.choice(game.get_legal_moves(self))
 
         # Recursive function that compares the heuristic values and chooses best move accordingly
         # Check if we are on max node or min node, then act act accordingly
@@ -255,31 +258,36 @@ class CustomPlayer:
         tuple(int, int)
             The best move for the current branch; (-1, -1) for no legal moves
         """
+
+        # check the timer on every iteration, raise Timeout exception if time is running out
         if self.time_left() < self.TIMER_THRESHOLD:
             raise Timeout()
 
-        # if we reached the search depth limit, then return the heuristic value for forecast state and any random move
-        # TODO: Check -1, -1
+        # if we reached the search depth limit, then return the heuristic value for forecast state and move
         if depth == 0:
             return self.score(game, self), (-1, -1)
 
-        # if we reached the game tree bottom, then return the heuristic value for forecast state
-        # TODO: Check utility
+        # if we reached the game tree bottom, then return the heuristic value for forecast state and move
         if game.utility(game.active_player) != 0:
             return game.utility(game.active_player), (-1, -1)
 
+        # Instantiate best_move with random move, so that we can safely return anything in the end of function
+        best_move = random.choice(game.get_legal_moves(self))
+
         # Recursive function that compares the heuristic values and chooses best move accordingly
+        # Minimax algorithm as above with Alpha-beta pruning
         # Check if we are on max node or min node, then act act accordingly
         if maximizing_player:
             # Choose minimal initial best_score, so we have something to compare to when iterating
             best_score = alpha
             for move in game.get_legal_moves():
                 # Start the recursive iteration of game tree
-                # But before check if we really need it
+                # But before check if we really need it by comparing to beta bound, if we don't - then prune
                 if best_score >= beta:
                     break
+                # If we need - then standard minimax algorithm
                 else:
-                    score, new_move = self.alphabeta(game.forecast_move(move), depth-1, best_score, float("inf"), not maximizing_player)
+                    score, new_move = self.alphabeta(game.forecast_move(move), depth-1, best_score, beta, not maximizing_player)
                     # Assign to best option the node (move) with the maximum score
                     if score > best_score:
                         best_score = score
@@ -290,10 +298,12 @@ class CustomPlayer:
             best_score = beta
             for move in game.get_legal_moves():
                 # Start the recursive iteration of game tree
+                # But before check if we really need it by comparing to alpha bound, if we don't - then prune
                 if best_score <= alpha:
                     break
+                # If we need - then standard minimax algorithm
                 else:
-                    score, new_move = self.alphabeta(game.forecast_move(move), depth-1, float("-inf"), best_score, not maximizing_player)
+                    score, new_move = self.alphabeta(game.forecast_move(move), depth-1, alpha, best_score, not maximizing_player)
                     # Assign to best option the node (move) with the minimum score
                     if score < best_score:
                         best_score = score
