@@ -177,6 +177,11 @@ def main():
         print("----------")
         print("{!s:<15}{:>10.2f}%".format(agentUT.name, win_ratio))
 
+    print("\n\nID vs Custom:")
+    print("----------")
+    win_ratio2 = play_round(test_agents, NUM_MATCHES)
+    print("{!s:<15}{:>10.2f}%".format(test_agents[1].name, win_ratio2))
+
 
 if __name__ == "__main__":
     main()
