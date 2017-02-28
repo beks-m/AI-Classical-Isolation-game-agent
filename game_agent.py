@@ -13,6 +13,69 @@ class Timeout(Exception):
     """Subclass base exception for code clarity."""
     pass
 
+def attacking_score(game, player):
+    """Calculate the heuristic value of a game state from the point of view
+    of the given player.
+
+    Parameters
+    ----------
+    game : `isolation.Board`
+        An instance of `isolation.Board` encoding the current state of the
+        game (e.g., player locations and blocked cells).
+
+    player : object
+        A player instance in the current game (i.e., an object corresponding to
+        one of the player objects `game.__player_1__` or `game.__player_2__`.)
+
+    Returns
+    ----------
+    float
+        The heuristic value of the current game state to the specified player.
+    """
+
+    if game.is_loser(player):
+        return float("-inf")
+
+    if game.is_winner(player):
+        return float("inf")
+
+    # minimize opponent’s open moves
+    return(float(-len(game.get_legal_moves(game.get_opponent(player)))))
+
+def deeper_score(game, player):
+    """Calculate the heuristic value of a game state from the point of view
+    of the given player.
+
+    Parameters
+    ----------
+    game : `isolation.Board`
+        An instance of `isolation.Board` encoding the current state of the
+        game (e.g., player locations and blocked cells).
+
+    player : object
+        A player instance in the current game (i.e., an object corresponding to
+        one of the player objects `game.__player_1__` or `game.__player_2__`.)
+
+    Returns
+    ----------
+    float
+        The heuristic value of the current game state to the specified player.
+    """
+
+    if game.is_loser(player):
+        return float("-inf")
+
+    if game.is_winner(player):
+        return float("inf")
+
+    # evaluate not on just number of open moves, but how good these open moves are
+    # by summing the scores of player’s currently available moves
+    score = 0
+    for move in game.get_legal_moves(player):
+        score += len(game.forecast_move(move).get_legal_moves(player))
+        score -= len(game.forecast_move(move).get_legal_moves(game.forecast_move(move).get_opponent(player)))
+
+    return float(score)
 
 def custom_score(game, player):
     """Calculate the heuristic value of a game state from the point of view
@@ -34,9 +97,24 @@ def custom_score(game, player):
         The heuristic value of the current game state to the specified player.
     """
 
-    number_of_moves = len(game.get_legal_moves(player))
-    number_of_opponent_moves = len(game.get_legal_moves(game.get_opponent(player)))
-    return float(number_of_moves - number_of_opponent_moves)
+    if game.is_loser(player):
+        return float("-inf")
+
+    if game.is_winner(player):
+        return float("inf")
+
+    # standard improved score
+    score = len(game.get_legal_moves(player)) - len(game.get_legal_moves(game.get_opponent(player)))
+
+    # Lean towards center of the board
+    # Choice farthest to the center will get minimal score
+    center_x = game.width/2
+    center_y = game.height/2
+    row, col = game.get_player_location(player)
+    score -= abs(row-center_x) * 0.1
+    score -= abs(col-center_y) * 0.1
+
+    return float(score)
 
 
 class CustomPlayer:
@@ -125,7 +203,7 @@ class CustomPlayer:
             return (-1, -1)
 
         # Assign initial best move, so that we have something to return if we are out of time
-        best_move = random.choice(legal_moves)
+        best_move = random.choice(game.get_legal_moves())
 
         try:
             # The search method call (alpha beta or minimax) should happen in
@@ -141,13 +219,14 @@ class CustomPlayer:
                     if (self.method == 'minimax'):
                         score, best_move = self.minimax(game, depth, True)
                     if (self.method == 'alphabeta'):
-                        score, best_move = self.alphabeta(game, depth, True)
+                        score, best_move = self.alphabeta(game, depth, float("-inf"), float("inf"), True)
                     depth += 1
             else:
                 if (self.method == 'minimax'):
                     score, best_move = self.minimax(game, self.search_depth, True)
+
                 if (self.method == 'alphabeta'):
-                    score, best_move = self.alphabeta(game, self.search_depth, True)
+                    score, best_move = self.alphabeta(game, self.search_depth, float("-inf"), float("inf"), True)
 
         except Timeout:
             # Handle any actions required at timeout, if necessary
@@ -186,16 +265,12 @@ class CustomPlayer:
         if self.time_left() < self.TIMER_THRESHOLD:
             raise Timeout()
 
-        # if we reached the search depth limit, then return the heuristic value for forecast state and move
-        if depth == 0:
-            return self.score(game, self), (-1, -1)
+        # if we reached the search depth limit or the game tree bottom, then return the heuristic value for forecast state and move
+        if depth == 0 or game.utility(self) != 0:
+            return self.score(game, self), game.__last_player_move__[game.inactive_player]
 
-        # if we reached the game tree bottom, then return the heuristic value for forecast state and move
-        if game.utility(game.active_player) != 0:
-            return game.utility(game.active_player), (-1, -1)
-
-        # Instantiate best_move with random move, so that we can safely return anything in the end of function
-        best_move = random.choice(game.get_legal_moves(self))
+        # Instantiate best_move, so that we can safely return something in the end of function
+        best_move = game.get_legal_moves()[0]
 
         # Recursive function that compares the heuristic values and chooses best move accordingly
         # Check if we are on max node or min node, then act act accordingly
@@ -263,51 +338,41 @@ class CustomPlayer:
         if self.time_left() < self.TIMER_THRESHOLD:
             raise Timeout()
 
-        # if we reached the search depth limit, then return the heuristic value for forecast state and move
-        if depth == 0:
-            return self.score(game, self), (-1, -1)
+        # if we reached the search depth limit or the game tree bottom, then return the heuristic value for forecast state and move
+        if depth == 0 or game.utility(self) != 0:
+            return self.score(game, self), game.__last_player_move__[game.inactive_player]
 
-        # if we reached the game tree bottom, then return the heuristic value for forecast state and move
-        if game.utility(game.active_player) != 0:
-            return game.utility(game.active_player), (-1, -1)
 
-        # Instantiate best_move with random move, so that we can safely return anything in the end of function
-        best_move = random.choice(game.get_legal_moves(self))
+        # Instantiate best_move, so that we can safely return something in the end of function
+        best_move = game.get_legal_moves()[0]
 
         # Recursive function that compares the heuristic values and chooses best move accordingly
         # Minimax algorithm as above with Alpha-beta pruning
         # Check if we are on max node or min node, then act act accordingly
         if maximizing_player:
             # Choose minimal initial best_score, so we have something to compare to when iterating
-            best_score = alpha
+            best_score = float("-inf")
             for move in game.get_legal_moves():
                 # Start the recursive iteration of game tree
-                # But before check if we really need it by comparing to beta bound, if we don't - then prune
+                score, new_move = self.alphabeta(game.forecast_move(move), depth-1, alpha, beta, not maximizing_player)
+                if score > best_score:
+                    best_score = score
+                    best_move = move
                 if best_score >= beta:
-                    break
-                # If we need - then standard minimax algorithm
-                else:
-                    score, new_move = self.alphabeta(game.forecast_move(move), depth-1, best_score, beta, not maximizing_player)
-                    # Assign to best option the node (move) with the maximum score
-                    if score > best_score:
-                        best_score = score
-                        best_move = move
+                    return best_score, best_move
+                alpha = max([alpha, best_score])
         # Almost the same logic if we are on min node
         else:
             # Choose maximal initial best_score, so we have something to compare to when iterating
-            best_score = beta
+            best_score = float("inf")
             for move in game.get_legal_moves():
                 # Start the recursive iteration of game tree
-                # But before check if we really need it by comparing to alpha bound, if we don't - then prune
+                score, new_move = self.alphabeta(game.forecast_move(move), depth-1, alpha, beta, not maximizing_player)
+                if score < best_score:
+                    best_score = score
+                    best_move = move
                 if best_score <= alpha:
-                    break
-                # If we need - then standard minimax algorithm
-                else:
-                    score, new_move = self.alphabeta(game.forecast_move(move), depth-1, alpha, best_score, not maximizing_player)
-                    # Assign to best option the node (move) with the minimum score
-                    if score < best_score:
-                        best_score = score
-                        best_move = move
+                    return best_score, best_move
+                beta = min([beta, best_score])
 
         return best_score, best_move
-
