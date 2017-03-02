@@ -216,16 +216,16 @@ class CustomPlayer:
                 # Start with minimal depth and gradually increase it to get better move
                 depth = 0
                 while True:
-                    if (self.method == 'minimax'):
+                    if self.method == 'minimax':
                         score, best_move = self.minimax(game, depth, True)
-                    if (self.method == 'alphabeta'):
+                    if self.method == 'alphabeta':
                         score, best_move = self.alphabeta(game, depth, float("-inf"), float("inf"), True)
                     depth += 1
             else:
-                if (self.method == 'minimax'):
+                if self.method == 'minimax':
                     score, best_move = self.minimax(game, self.search_depth, True)
 
-                if (self.method == 'alphabeta'):
+                if self.method == 'alphabeta':
                     score, best_move = self.alphabeta(game, self.search_depth, float("-inf"), float("inf"), True)
 
         except Timeout:
